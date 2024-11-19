@@ -5,7 +5,7 @@
 # @Email   : yuangong@mit.edu
 # @File    : get_esc_result.py
 
-# summarize esc 5-fold cross validation result
+# summarize ast 5-fold cross validation result
 
 import argparse
 import numpy as np

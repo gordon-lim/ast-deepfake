@@ -10,7 +10,7 @@
 import os
 import numpy as np
 import torch
-import new_dataloader
+import dataloader
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
     }
 
     train_loader = torch.utils.data.DataLoader(
-        new_dataloader.AudiosetDataset(data_path, audio_conf=audio_conf),
+        dataloader.AudiosetDataset(data_path, audio_conf=audio_conf),
         batch_size=24, shuffle=False, num_workers=8, pin_memory=True
     )
 

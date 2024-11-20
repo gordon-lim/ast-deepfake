@@ -19,7 +19,7 @@ The following paper proposes the Audio Spectrogram Transformer.
 }
 ```  
   
-## Getting Started  
+## Setup
 
 Step 1. Clone or download this repository and set it as the working directory, create a virtual environment and install the dependencies.
 
@@ -34,6 +34,15 @@ Step 2. Download the ASVspoof2021 dataset into the `exp/asvspoof2021/data` direc
 
 ```
 ./download_dataset.sh
+```
+
+## Quick Start
+
+To cross validate AST on ASVspoof2021 DF, modify the parameters within `ASVspoof2021/run_ast.sh` and run it.
+
+```
+cd ASVspoof2021/
+./run_ast.sh
 ```
 
  ## Acknowledgements

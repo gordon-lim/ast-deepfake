@@ -24,7 +24,7 @@ The following paper proposes the Audio Spectrogram Transformer.
 Step 1. Clone or download this repository and set it as the working directory, create a virtual environment and install the dependencies.
 
 ```
-cd ast/ 
+cd ast-asvspoof/ 
 python3 -m venv venvast
 source venvast/bin/activate
 pip install -r requirements.txt 
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 Step 2. Download the ASVspoof2021 dataset into the `exp/asvspoof2021/data` directory.
 
 ```
-./download_asvspoof.sh
+./download_dataset.sh
 ```
 
  ## Acknowledgements

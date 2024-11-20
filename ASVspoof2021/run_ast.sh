@@ -61,13 +61,13 @@ do
 
   exp_dir=${base_exp_dir}/fold${fold}
 
-  # tr_data=./datafiles/deepfake_train_${fold}.csv
-  # te_data=./datafiles/deepfake_eval_${fold}.csv
+  tr_data=./datafiles/df_train_fold_${fold}.csv
+  te_data=./datafiles/df_eval_fold_${fold}.csv
 
-  tr_data= cat ./test.csv
-  te_data= cat ./test.csv
+  # tr_data=./test.csv
+  # te_data=./test.csv
 
-  CUDA_CACHE_DISABLE=1 python -W ignore ../../src/run.py --model ${model} --dataset ${dataset} \
+  CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset ${dataset} \
   --data-train ${tr_data} --data-val ${te_data} --exp-dir $exp_dir \
   --n_class 2 \
   --lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \
@@ -77,4 +77,4 @@ do
   --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise}
 done
 
-python ./get_esc_result.py --exp_path ${base_exp_dir}
+python ./get_ast_result.py --exp_path ${base_exp_dir}

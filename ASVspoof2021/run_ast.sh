@@ -12,7 +12,7 @@ set -x
 # comment this line if not running on sls cluster
 # . /data/sls/scratch/share-201907/slstoolchainrc
 # source ../../venvast/bin/activate
-export TORCH_HOME=../../pretrained_models
+export TORCH_HOME=../pretrained_models
 
 model=ast
 dataset=asvspoof2021
@@ -37,6 +37,7 @@ dataset_mean=-6.6268077
 dataset_std=5.358466
 audio_length=512
 noise=False
+use_deltas=False
 
 metrics=acc
 loss=CE
@@ -45,7 +46,7 @@ lrscheduler_start=5
 lrscheduler_step=1
 lrscheduler_decay=0.85
 
-base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}
+base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-deltas$use_deltas
 
 # python ./prep_ast.py
 
@@ -74,7 +75,7 @@ do
   --freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
   --tstride $tstride --fstride $fstride --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain \
   --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
-  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise}
+  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise} --use_deltas ${use_deltas}
 done
 
 python ./get_ast_result.py --exp_path ${base_exp_dir}

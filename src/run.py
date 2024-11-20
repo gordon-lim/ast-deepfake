@@ -57,6 +57,7 @@ parser.add_argument("--dataset_mean", type=float, default=-4.2677393, help="the 
 parser.add_argument("--dataset_std", type=float, default=4.5689974, help="the dataset spectrogram std")
 parser.add_argument("--audio_length", type=int, default=1024, help="the dataset spectrogram std")
 parser.add_argument('--noise', help='if augment noise', type=ast.literal_eval, default='False')
+parser.add_argument('--use_deltas', help='if use delta features', type=ast.literal_eval, default='False')
 
 parser.add_argument("--metrics", type=str, default=None, help="evaluation metrics", choices=["acc", "mAP"])
 parser.add_argument("--loss", type=str, default=None, help="loss function", choices=["BCE", "CE"])
@@ -109,8 +110,8 @@ if args.model == 'ast':
     # noise = {'audioset': False, 'esc50': False, 'speechcommands':True}
 
     audio_conf = {'num_mel_bins': 128, 'target_length': args.audio_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset, 'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std,
-                  'noise':args.noise}
-    val_audio_conf = {'num_mel_bins': 128, 'target_length': args.audio_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset, 'mode':'evaluation', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':False}
+                  'noise':args.noise, 'use_deltas': args.use_deltas}
+    val_audio_conf = {'num_mel_bins': 128, 'target_length': args.audio_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset, 'mode':'evaluation', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':False, 'use_deltas': args.use_deltas}
 
     if args.bal == 'bal':
         print('balanced sampler is being used')
@@ -130,7 +131,9 @@ if args.model == 'ast':
         dataloader.AudiosetDataset(args.data_val, label_csv=args.label_csv, audio_conf=val_audio_conf),
         batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-    audio_model = models.ASTModel(label_dim=args.n_class, fstride=args.fstride, tstride=args.tstride, input_fdim=128,
+    num_chans = 3 if args.use_deltas else 1
+
+    audio_model = models.ASTModel(in_chans=num_chans, label_dim=args.n_class, fstride=args.fstride, tstride=args.tstride, input_fdim=128,
                                   input_tdim=args.audio_length, imagenet_pretrain=args.imagenet_pretrain,
                                   audioset_pretrain=args.audioset_pretrain, model_size='base384')
 

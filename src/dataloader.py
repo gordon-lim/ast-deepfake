@@ -100,12 +100,14 @@ class AudiosetDataset(Dataset):
         self.noise = self.audio_conf.get('noise')
         if self.noise == True:
             print('now use noise augmentation')
-
+        self.use_deltas = self.audio_conf.get('use_deltas')
+        if self.use_deltas == True:
+            print('now use delta features')
         self.label_num = 2
         print('number of classes is {:d}'.format(self.label_num))
 
     def _wav2fbank(self, filename, filename2=None):
-        # mixup
+        # if not do mixup
         if filename2 == None:
             waveform, sr = librosa.load(filename, sr=None)
             waveform = waveform - waveform.mean()
@@ -144,7 +146,7 @@ class AudiosetDataset(Dataset):
             waveform = waveform.unsqueeze(0)  # Shape: [1, num_samples]
 
         fbank = torchaudio.compliance.kaldi.fbank(waveform, htk_compat=True, sample_frequency=sr, use_energy=False,
-                                                  window_type='hanning', num_mel_bins=self.melbins, dither=0.0, frame_shift=10)
+                                                  window_type='hanning', num_mel_bins=self.melbins, dither=0.0, frame_shift=10) # (n_frames, n_freq)
 
         target_length = self.audio_conf.get('target_length')
         n_frames = fbank.shape[0]
@@ -157,6 +159,13 @@ class AudiosetDataset(Dataset):
             fbank = m(fbank)
         elif p < 0:
             fbank = fbank[0:target_length, :]
+
+        fbank = fbank.unsqueeze(0)  # Shape: [1, time, freq]
+        if self.use_deltas:
+            delta_transform = torchaudio.transforms.ComputeDeltas(win_length=5)
+            delta = delta_transform(fbank)
+            delta_delta = delta_transform(delta)
+            fbank = torch.cat([fbank, delta, delta_delta], dim=0)  # Shape: [3, time, freq]
 
         if filename2 == None:
             return fbank, 0
@@ -192,16 +201,13 @@ class AudiosetDataset(Dataset):
         # SpecAug, not do for eval set
         freqm = torchaudio.transforms.FrequencyMasking(self.freqm)
         timem = torchaudio.transforms.TimeMasking(self.timem)
-        fbank = torch.transpose(fbank, 0, 1)
+        fbank = torch.transpose(fbank, 1, 2)
         # this is just to satisfy new torchaudio version, which only accept [1, freq, time]
-        fbank = fbank.unsqueeze(0)
         if self.freqm != 0:
             fbank = freqm(fbank)
         if self.timem != 0:
             fbank = timem(fbank)
-        # squeeze it back, it is just a trick to satisfy new torchaudio version
-        fbank = fbank.squeeze(0)
-        fbank = torch.transpose(fbank, 0, 1)
+        fbank = torch.transpose(fbank, 1, 2) # back to [1, time, freq]
         # normalize the input for both training and test
         if not self.skip_norm:
             fbank = (fbank - self.norm_mean) / (self.norm_std * 2)
@@ -211,12 +217,12 @@ class AudiosetDataset(Dataset):
 
         if self.noise == True:
             fbank = fbank + \
-                torch.rand(fbank.shape[0], fbank.shape[1]
+                torch.rand(fbank.shape[0], fbank.shape[1], fbank.shape[2]
                            ) * np.random.rand() / 10
             fbank = torch.roll(fbank, np.random.randint(-10, 10), 0)
 
-        mix_ratio = min(mix_lambda, 1-mix_lambda) / \
-            max(mix_lambda, 1-mix_lambda)
+        # mix_ratio = min(mix_lambda, 1-mix_lambda) / \
+        #     max(mix_lambda, 1-mix_lambda)
 
         spectro = {'fbank': fbank, 'label': label_indices}
         # plot_fbank(fbank, "after", index)
@@ -235,7 +241,7 @@ class AudiosetDataset(Dataset):
             print(
                 f"All data saved to {os.path.join(output_dir, 'all_data.pt')}")
 
-        # the output fbank shape is [time_frame_num, frequency_bins], e.g., [1024, 128]
+        # the output fbank shape is [num_channels, time_frame_num, frequency_bins], e.g., [1, 1024, 128]
         # print(f"fbank shape: {fbank.shape}, label_indices: {label_indices}")
         return fbank, label_indices
 

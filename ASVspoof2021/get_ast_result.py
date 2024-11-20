@@ -20,6 +20,7 @@ if __name__ == '__main__':
     for fold in range(1, 6):
         result = np.loadtxt(args.exp_path+'/fold' + str(fold) + '/result.csv', delimiter=',')
         if fold == 1:
+            assert result.ndim != 1, f"Expected 'result' to be a 2D array, but got {result.ndim}D instead. Did you train for at least 2 epochs?"
             cum_result = np.zeros([result.shape[0], result.shape[1]])
         cum_result = cum_result + result
     result = cum_result / 5

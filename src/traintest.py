@@ -16,11 +16,22 @@ from torch import nn
 import numpy as np
 import pickle
 from torch.cuda.amp import autocast,GradScaler
+import wandb
 
 def train(audio_model, train_loader, test_loader, args):
+
+    # Initialize wandb
+    wandb.init(
+        project="ast",
+        name=args.exp_dir,  # optional experiment name
+        config=args  # logs all args parameters
+    )
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('running on ' + str(device))
     torch.set_grad_enabled(True)
+
+    wandb.watch(audio_model, log="all", log_freq=100)
 
     # Initialize all of the statistics we want to keep track of
     batch_time = AverageMeter()
@@ -194,6 +205,13 @@ def train(audio_model, train_loader, test_loader, args):
         print("d_prime: {:.6f}".format(d_prime(mAUC)))
         print("train_loss: {:.6f}".format(loss_meter.avg))
         print("valid_loss: {:.6f}".format(valid_loss))
+
+        wandb.log({
+            "epoch": epoch,
+            "train_loss": loss_meter.avg,
+            "val_loss": valid_loss,
+            "val_mAP": mAP,
+        })
 
         if main_metrics == 'mAP':
             result[epoch-1, :] = [mAP, mAUC, average_precision, average_recall, d_prime(mAUC), loss_meter.avg, valid_loss, cum_mAP, cum_mAUC, optimizer.param_groups[0]['lr']]

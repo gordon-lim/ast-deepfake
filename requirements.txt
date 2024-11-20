@@ -12,3 +12,4 @@ torchaudio
 torchvision
 wget
 zipp
+wandb

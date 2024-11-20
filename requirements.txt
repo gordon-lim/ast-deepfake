@@ -1,4 +1,6 @@
 llvmlite
+librosa
+pandas
 matplotlib
 numba
 numpy

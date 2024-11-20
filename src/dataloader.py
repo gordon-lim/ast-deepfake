@@ -222,8 +222,6 @@ class AudiosetDataset(Dataset):
         # plot_fbank(fbank, "after", index)
         if self.count == 100:
             print("its working")
-        if (self.count % 10000 == 0):
-            print(f"Processed {self.count} samples")
         self.saved_data.append(spectro)
         self.count += 1
 

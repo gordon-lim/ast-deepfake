@@ -19,6 +19,11 @@ from torch.cuda.amp import autocast,GradScaler
 
 def train(audio_model, train_loader, test_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+     # Check if the device is CPU and throw an error
+    if device.type == "cpu":
+        raise RuntimeError("CUDA is not available. This script requires a GPU to run.")
+
+    print('running on ' + str(device))
     print('running on ' + str(device))
     torch.set_grad_enabled(True)
 
@@ -107,7 +112,6 @@ def train(audio_model, train_loader, test_loader, args):
         print("current #epochs=%s, #steps=%s" % (epoch, global_step))
 
         for i, (audio_input, labels) in enumerate(train_loader):
-
             B = audio_input.size(0)
             audio_input = audio_input.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
@@ -115,13 +119,14 @@ def train(audio_model, train_loader, test_loader, args):
             data_time.update(time.time() - end_time)
             per_sample_data_time.update((time.time() - end_time) / audio_input.shape[0])
             dnn_start_time = time.time()
-
+            # print("start warmup")
             # first several steps for warm-up
             if global_step <= 1000 and global_step % 50 == 0 and warmup == True:
                 warm_lr = (global_step / 1000) * args.lr
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = warm_lr
                 print('warm-up learning rate is {:f}'.format(optimizer.param_groups[0]['lr']))
+            
 
             with autocast():
                 audio_output = audio_model(audio_input)
@@ -137,9 +142,13 @@ def train(audio_model, train_loader, test_loader, args):
 
             # optimiztion if amp is used
             optimizer.zero_grad()
+
             scaler.scale(loss).backward()
+
             scaler.step(optimizer)
+  
             scaler.update()
+
 
             # record loss
             loss_meter.update(loss.item(), B)

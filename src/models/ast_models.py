@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.cuda.amp import autocast
 import os
 import wget
-os.environ['TORCH_HOME'] = '../pretrained_models'
+os.environ['TORCH_HOME'] = '../../pretrained_models'
 import timm
 from timm.models.layers import to_2tuple,trunc_normal_
 
@@ -29,7 +29,10 @@ class PatchEmbed(nn.Module):
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x):
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        # x (batch_size, None, frequency_bins, time_frame_num)
+        x = self.proj(x) # (batch_size, embed_dim, frequency_bins // patch_size, time_frames // patch_size)
+        x= x.flatten(2) # (batch_size, embed_dim, num_patches)
+        x = x.transpose(1, 2) # (batch_size, num_patches, embed_dim)
         return x
 
 class ASTModel(nn.Module):
@@ -80,7 +83,7 @@ class ASTModel(nn.Module):
                 print('frequncey stride={:d}, time stride={:d}'.format(fstride, tstride))
                 print('number of patches={:d}'.format(num_patches))
 
-            # the linear projection layer
+            # the linear projection layer, # FIXME: Use multi-spectrogram
             new_proj = torch.nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
             if imagenet_pretrain == True:
                 new_proj.weight = torch.nn.Parameter(torch.sum(self.v.patch_embed.proj.weight, dim=1).unsqueeze(1))
@@ -119,11 +122,11 @@ class ASTModel(nn.Module):
             if model_size != 'base384':
                 raise ValueError('currently only has base384 AudioSet pretrained model.')
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if os.path.exists('../pretrained_models/audioset_10_10_0.4593.pth') == False:
+            if os.path.exists('../../pretrained_models/audioset_10_10_0.4593.pth') == False:
                 # this model performs 0.4593 mAP on the audioset eval set
                 audioset_mdl_url = 'https://www.dropbox.com/s/cv4knew8mvbrnvq/audioset_0.4593.pth?dl=1'
-                wget.download(audioset_mdl_url, out='../pretrained_models/audioset_10_10_0.4593.pth')
-            sd = torch.load('../pretrained_models/audioset_10_10_0.4593.pth', map_location=device)
+                wget.download(audioset_mdl_url, out='../../pretrained_models/audioset_10_10_0.4593.pth')
+            sd = torch.load('../../pretrained_models/audioset_10_10_0.4593.pth', map_location=device)
             audio_model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=False, audioset_pretrain=False, model_size='base384', verbose=False)
             audio_model = torch.nn.DataParallel(audio_model)
             audio_model.load_state_dict(sd, strict=False)
@@ -167,21 +170,22 @@ class ASTModel(nn.Module):
         :param x: the input spectrogram, expected shape: (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
         :return: prediction
         """
-        # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
-        x = x.unsqueeze(1)
-        x = x.transpose(2, 3)
+        # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128) # FIXME: If multi-spectrogram (12, N, 1024, 128)
+        x = x.unsqueeze(1) # (batch_size, None, time_frame_num, frequency_bins), e.g., (12, 1, 1024, 128) 
+        x = x.transpose(2, 3) # (batch_size, None, frequency_bins, time_frame_num), e.g., (12, 1, 128, 1024)
 
         B = x.shape[0]
-        x = self.v.patch_embed(x)
-        cls_tokens = self.v.cls_token.expand(B, -1, -1)
-        dist_token = self.v.dist_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, x), dim=1)
+        x = self.v.patch_embed(x) # spectrogram is split into patches using nn.Conv2d (batch_size, num_patches, embedding_dim)
+        cls_tokens = self.v.cls_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
+        dist_token = self.v.dist_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
+        x = torch.cat((cls_tokens, dist_token, x), dim=1) # (batch_size, num_patches + 2, embedding_dim)
         x = x + self.v.pos_embed
-        x = self.v.pos_drop(x)
+        x = self.v.pos_drop(x) # dropout layer, assumes # (batch_size, num_tokens, embedding_dim)
+
         for blk in self.v.blocks:
             x = blk(x)
-        x = self.v.norm(x)
-        x = (x[:, 0] + x[:, 1]) / 2
+        x = self.v.norm(x) # (batch_size, num_tokens, embedding_dim)
+        x = (x[:, 0] + x[:, 1]) / 2 # averages the cls and dist tokens to reduce to a single vector per sample, (batch_size, embedding_dim)
 
         x = self.mlp_head(x)
         return x

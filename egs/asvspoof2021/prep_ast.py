@@ -15,6 +15,7 @@ if not os.path.exists(datafile_path):
 file_path = os.path.join(base_path, 'train_la_data.csv')
 df = pd.read_csv(file_path)
 
+
 n_splits = 5
 
 # Initialize StratifiedKFold

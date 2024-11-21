@@ -6,7 +6,7 @@ import new_dataloader
 
 def main():
     base = os.getcwd()
-    data_path = base + '/datafiles/la_train_fold_1.csv'
+    data_path = 'train_la_data.csv'
 
     # Set skip_norm as True only when computing normalization stats
     audio_conf = {
@@ -17,7 +17,7 @@ def main():
         'mean': -3.8588,
         'std': 5.2843,
         'mixup': 0,
-        'skip_norm': False,
+        'skip_norm': True,
         'mode': 'train',
         'dataset': 'asvspoof2021',
         'noise': False

@@ -2,10 +2,9 @@ import os
 import numpy as np
 import torch
 from models import ASTModel
-from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score, recall_score
+from sklearn.metrics import accuracy_score, roc_auc_score, average_precision_score, recall_score, roc_curve
 import new_dataloader
 from scipy.stats import norm
-
 
 def calculate_d_prime(hit_rate, false_alarm_rate):
     """Calculate d-prime based on hit rate and false alarm rate."""
@@ -19,6 +18,22 @@ def calculate_d_prime(hit_rate, false_alarm_rate):
 
     # d-prime formula
     return z_hit - z_fa
+
+
+def calculate_eer(targets, predictions):
+    """Calculate Equal Error Rate (EER)."""
+    # Flatten targets if necessary
+    if len(targets.shape) > 1 and targets.shape[1] == 2:
+        targets = targets[:, 1]  # Use positive class probabilities for binary classification
+
+    # Compute False Positive Rate, True Positive Rate, and thresholds
+    fpr, tpr, thresholds = roc_curve(targets, predictions[:, 1])
+    fnr = 1 - tpr  # False Negative Rate
+
+    # Find the threshold where FPR == FNR (EER point)
+    eer_threshold_index = np.nanargmin(np.abs(fpr - fnr))
+    eer = (fpr[eer_threshold_index] + fnr[eer_threshold_index]) / 2
+    return eer, thresholds[eer_threshold_index]
 
 
 def evaluate(audio_model_path, eval_loader):
@@ -81,12 +96,16 @@ def evaluate(audio_model_path, eval_loader):
     false_alarm_rate = 1 - acc
     d_prime = calculate_d_prime(hit_rate, false_alarm_rate)
 
+    # EER calculation
+    eer, eer_threshold = calculate_eer(targets, predictions)
+
     # Print results
     print(f"Accuracy: {acc:.6f}")
     print(f"AUC: {auc:.6f}")
     print(f"Avg Precision: {avg_precision:.6f}")
     print(f"Avg Recall: {avg_recall:.6f}")
     print(f"d_prime: {d_prime:.6f}")
+    print(f"EER: {eer:.6f} (Threshold: {eer_threshold:.6f})")
 
     return {
         "accuracy": acc,
@@ -94,11 +113,14 @@ def evaluate(audio_model_path, eval_loader):
         "Avg Precision": avg_precision,
         "Avg Recall": avg_recall,
         "d_prime": d_prime,
+        "EER": eer,
+        "EER Threshold": eer_threshold
     }
+
 
 def main():
     base = os.getcwd()
-    data_path = os.path.join('..','egs','asvspoof2021' ,'datafiles', 'la_train_fold_1.csv')
+    data_path = os.path.join('..','egs','asvspoof2021', 'evaluation.csv')
 
     # Define audio configuration
     audio_conf = {
@@ -130,7 +152,7 @@ def main():
         'egs',
         'asvspoof2021',
         'exp',
-        'test-asvspoof2021-f10-t10-impTrue-aspTrue-b12-lr1e-5',
+        'test_titan4',
         'fold1',
         'models',
         'best_audio_model.pth'

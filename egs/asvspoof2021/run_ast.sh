@@ -33,13 +33,15 @@ batch_size=12
 fstride=10
 tstride=10
 
-dataset_mean=-3.8588
-dataset_std=5.2843
+# dataset_mean=-3.8588 eval data
+# dataset_std=5.2843 eval data
+dataset_mean=-4.0263
+dataset_std=5.1623
 audio_length=512
 noise=False
 
 metrics=acc
-loss=CE
+loss=BCE
 warmup=False
 lrscheduler_start=5
 lrscheduler_step=1
@@ -55,7 +57,7 @@ if [ -d $base_exp_dir ]; then
 fi
 mkdir -p $base_exp_dir
 
-for((fold=1;fold<=5;fold++));
+for((fold=1;fold<=1;fold++));
 do
   echo 'now process fold'${fold}
 

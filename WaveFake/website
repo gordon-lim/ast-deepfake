@@ -1,0 +1,3 @@
+https://zenodo.org/records/5642694
+
+In common_voices_prompts_from_conformer_fastspeech2_pwg_ljspeech, it contains a folder called generated that contains a folder called generated. generated has exactly the same audio to common_voices_prompts_from_conformer_fastspeech2_pwg_ljspeech. I ignored the audios in generated.

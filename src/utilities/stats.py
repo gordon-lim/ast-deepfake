@@ -8,51 +8,44 @@ def d_prime(auc):
     d_prime = standard_normal.ppf(auc) * np.sqrt(2.0)
     return d_prime
 
+def calculate_eer(target, output):
+    """Calculate Equal Error Rate (EER) from all target and output scores."""
+    # Compute False Positive Rate, True Positive Rate, and thresholds
+    fpr, tpr, thresholds = metrics.roc_curve(target, output)
+    fnr = 1 - tpr  # False Negative Rate
+
+    # Find the threshold where FPR == FNR (EER point)
+    eer_index = np.nanargmin(np.abs(fpr - fnr))
+    eer = (fpr[eer_index] + fnr[eer_index]) / 2
+    return eer
+
 def calculate_stats(output, target):
     """Calculate statistics including mAP, AUC, etc.
 
     Args:
-      output: 2d array, (samples_num, classes_num)
-      target: 2d array, (samples_num, classes_num)
+      output: 1d array, (samples_num, )
+      target: 1d array, (samples_num, )
 
     Returns:
-      stats: list of statistic of each class.
+      stats: list of statistics.
     """
 
-    classes_num = target.shape[-1]
-    stats = []
+    # Flatten target and output for dataset-level evaluation
+    target_flat = target.flatten()
+    output_flat = output.flatten()
 
-    # Accuracy, only used for single-label classification such as esc-50, not for multiple label one such as AudioSet
-    acc = metrics.accuracy_score(np.argmax(target, 1), np.argmax(output, 1))
+    # Calculate metrics
+    acc = metrics.accuracy_score(np.argmax(target, axis=1), np.argmax(output, axis=1))
+    avg_precision = metrics.average_precision_score(target_flat, output_flat)
+    auc = metrics.roc_auc_score(target_flat, output_flat)
+    eer = calculate_eer(target_flat, output_flat)
 
-    # Class-wise statistics
-    for k in range(classes_num):
-
-        # Average precision
-        avg_precision = metrics.average_precision_score(
-            target[:, k], output[:, k], average=None)
-
-        # AUC
-        auc = metrics.roc_auc_score(target[:, k], output[:, k], average=None)
-
-        # Precisions, recalls
-        (precisions, recalls, thresholds) = metrics.precision_recall_curve(
-            target[:, k], output[:, k])
-
-        # FPR, TPR
-        (fpr, tpr, thresholds) = metrics.roc_curve(target[:, k], output[:, k])
-
-        save_every_steps = 1000     # Sample statistics to reduce size
-        dict = {'precisions': precisions[0::save_every_steps],
-                'recalls': recalls[0::save_every_steps],
-                'AP': avg_precision,
-                'fpr': fpr[0::save_every_steps],
-                'fnr': 1. - tpr[0::save_every_steps],
-                'auc': auc,
-                # note acc is not class-wise, this is just to keep consistent with other metrics
-                'acc': acc
-                }
-        stats.append(dict)
+    stats = {
+        'accuracy': acc,
+        'average_precision': avg_precision,
+        'auc': auc,
+        'eer': eer
+    }
 
     return stats
 

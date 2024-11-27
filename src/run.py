@@ -61,7 +61,7 @@ parser.add_argument("--audio_length", type=int, default=1024, help="the dataset 
 parser.add_argument('--noise', help='if augment noise', type=ast.literal_eval, default='False')
 parser.add_argument('--use_deltas', help='if use delta features', type=ast.literal_eval, default='False')
 
-parser.add_argument("--metrics", type=str, default=None, help="evaluation metrics", choices=["acc", "mAP"])
+parser.add_argument("--metrics", type=str, default=None, help="evaluation metrics", choices=["acc", "AP"])
 parser.add_argument("--loss", type=str, default=None, help="loss function", choices=["BCE", "CE"])
 parser.add_argument('--warmup', help='if warmup the learning rate', type=ast.literal_eval, default='False')
 parser.add_argument("--lrscheduler_start", type=int, default=2, help="which epoch to start reducing the learning rate")
@@ -145,10 +145,14 @@ eval_loader = torch.utils.data.DataLoader(
     dataloader.AudiosetDataset(args.data_eval, label_csv=args.label_csv, audio_conf=val_audio_conf),
     batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
-eval_acc = stats[0]['acc']
-eval_mAUC = np.mean([stat['auc'] for stat in stats])
+eval_acc = stats['accuracy']
+eval_ap = stats['average_precision']
+eval_AUC = stats['auc']
+eval_eer = stats['eer']
 print('---------------evaluate on the test set---------------')
 print("Accuracy: {:.6f}".format(eval_acc))
-print("AUC: {:.6f}".format(eval_mAUC))
-np.savetxt(args.exp_dir + '/eval_result.csv', [eval_acc, eval_mAUC])
+print("Average Precision: {:.6f}".format(eval_ap))
+print("AUC: {:.6f}".format(eval_AUC))
+print("EER: {:.6f}".format(eval_eer))
+np.savetxt(args.exp_dir + '/eval_result.csv', [eval_acc, eval_ap, eval_AUC, eval_eer])
 

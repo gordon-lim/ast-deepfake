@@ -5,7 +5,7 @@
 # @Email   : yuangong@mit.edu
 # @File    : get_esc_result.py
 
-# summarize ast 5-fold cross validation result
+# summarize results from a single train-validation split
 
 import argparse
 import numpy as np
@@ -15,27 +15,15 @@ parser.add_argument("--exp_path", type=str, default='', help="the root path of t
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    mAP_list = []
-    acc_list = []
-    for fold in range(1, 6):
-        result = np.loadtxt(args.exp_path+'/fold' + str(fold) + '/result.csv', delimiter=',')
-        if fold == 1:
-            assert result.ndim != 1, f"Expected 'result' to be a 2D array, but got {result.ndim}D instead. Did you train for at least 2 epochs?"
-            cum_result = np.zeros([result.shape[0], result.shape[1]])
-        cum_result = cum_result + result
-    result = cum_result / 5
-    np.savetxt(args.exp_path+'/result.csv', result, delimiter=',')
-    # note this is choose the best epoch based on AVERAGED accuracy across 5 folds, not the best epoch for each fold
-    best_epoch = np.argmax(result[:, 0])
+    
+    # Load the result for the single train-validation split
+    result = np.loadtxt(args.exp_path + '/result.csv', delimiter=',')
+    assert result.ndim != 1, f"Expected 'result' to be a 2D array, but got {result.ndim}D instead. Did you train for at least 2 epochs?"
+    
+    # Compute metrics
+    best_epoch = np.argmax(result[:, 0])  # Select the best epoch based on accuracy
     np.savetxt(args.exp_path + '/best_result.csv', result[best_epoch, :], delimiter=',')
 
-    acc_fold = []
     print('--------------Result Summary--------------')
-    for fold in range(1, 6):
-        result = np.loadtxt(args.exp_path+'/fold' + str(fold) + '/result.csv', delimiter=',')
-        # note this is the best epoch based on AVERAGED accuracy across 5 folds, not the best epoch for each fold (which leads to over-optimistic results), this gives more fair result.
-        acc_fold.append(result[best_epoch, 0])
-        print('Fold {:d} accuracy: {:.4f}'.format(fold, result[best_epoch, 0]))
-    acc_fold.append(np.mean(acc_fold))
-    print('The averaged accuracy of 5 folds is {:.3f}'.format(acc_fold[-1]))
-    np.savetxt(args.exp_path + '/acc_fold.csv', acc_fold, delimiter=',')
+    print('Best epoch accuracy: {:.4f}'.format(result[best_epoch, 0]))
+    print('Results saved to', args.exp_path)

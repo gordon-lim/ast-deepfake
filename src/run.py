@@ -30,6 +30,7 @@ parser.add_argument("--label-csv", type=str, default='', help="csv with class la
 parser.add_argument("--n_class", type=int, default=527, help="number of classes")
 parser.add_argument("--model", type=str, default='ast', help="the model used")
 parser.add_argument("--dataset", type=str, default="audioset", help="the dataset used")
+parser.add_argument("--eval_only", help='only evaluate the model without training', type=ast.literal_eval, default='False')
 
 parser.add_argument("--exp-dir", type=str, default="", help="directory to dump experiments")
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')
@@ -69,32 +70,6 @@ parser.add_argument("--lrscheduler_decay", type=float, default=0.5, help="the le
 parser.add_argument('--wa', help='if weight averaging', type=ast.literal_eval, default='False')
 parser.add_argument('--wa_start', type=int, default=1, help="which epoch to start weight averaging the checkpoint model")
 parser.add_argument('--wa_end', type=int, default=5, help="which epoch to end weight averaging the checkpoint model")
-
-# if args.dataset == 'audioset':
-#     if len(train_loader.dataset) > 2e5:
-#         print('scheduler for full audioset is used')
-#         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [2,3,4,5], gamma=0.5, last_epoch=-1)
-#     else:
-#         print('scheduler for balanced audioset is used')
-#         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [10, 15, 20, 25], gamma=0.5, last_epoch=-1)
-#     main_metrics = 'mAP'
-#     loss_fn = nn.BCEWithLogitsLoss()
-#     warmup = True
-# elif args.dataset == 'esc50':
-#     print('scheduler for esc-50 is used')
-#     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, list(range(5,26)), gamma=0.85)
-#     main_metrics = 'acc'
-#     loss_fn = nn.CrossEntropyLoss()
-#     warmup = False
-# elif args.dataset == 'speechcommands':
-#     print('scheduler for speech commands is used')
-#     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, list(range(5,26)), gamma=0.85)
-#     main_metrics = 'acc'
-#     loss_fn = nn.BCEWithLogitsLoss()
-#     warmup = False
-# else:
-#     raise ValueError('unknown dataset, dataset should be in [audioset, speechcommands, esc50]')
-#
 
 args = parser.parse_args()
 
@@ -137,39 +112,34 @@ if args.model == 'ast':
                                   input_tdim=args.audio_length, imagenet_pretrain=args.imagenet_pretrain,
                                   audioset_pretrain=args.audioset_pretrain, model_size='base384')
 
-print("\nCreating experiment directory: %s" % args.exp_dir)
-os.makedirs("%s/models" % args.exp_dir)
-with open("%s/args.pkl" % args.exp_dir, "wb") as f:
-    pickle.dump(args, f)
+if not args.eval_only:
+    print("\nCreating experiment directory: %s" % args.exp_dir)
+    os.makedirs("%s/models" % args.exp_dir)
+    with open("%s/args.pkl" % args.exp_dir, "wb") as f:
+        pickle.dump(args, f)
+    
+    print('Now starting training for {:d} epochs'.format(args.n_epochs))
+    train(audio_model, train_loader, val_loader, args)
 
-print('Now starting training for {:d} epochs'.format(args.n_epochs))
-train(audio_model, train_loader, val_loader, args)
+assert os.path.exists(args.exp_dir), f"Experiment directory {args.exp_dir} does not exist. Please check the path."
+model_path = os.path.join(args.exp_dir, 'models', 'best_audio_model.pth')
+assert os.path.exists(model_path), f"Model file {model_path} does not exist. Please ensure the model has been trained and saved."
 
-# for speechcommands dataset, evaluate the best model on validation set on the test set
-if args.dataset == 'speechcommands':
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sd = torch.load(args.exp_dir + '/models/best_audio_model.pth', map_location=device)
-    audio_model = torch.nn.DataParallel(audio_model)
-    audio_model.load_state_dict(sd)
+print('Loading the best model for evaluation...')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+sd = torch.load(model_path, map_location=device)
+audio_model = torch.nn.DataParallel(audio_model)
+audio_model.load_state_dict(sd)
 
-    # best model on the validation set
-    stats, _ = validate(audio_model, val_loader, args, 'valid_set')
-    # note it is NOT mean of class-wise accuracy
-    val_acc = stats[0]['acc']
-    val_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the validation set---------------')
-    print("Accuracy: {:.6f}".format(val_acc))
-    print("AUC: {:.6f}".format(val_mAUC))
-
-    # test the model on the evaluation set
-    eval_loader = torch.utils.data.DataLoader(
-        dataloader.AudiosetDataset(args.data_eval, label_csv=args.label_csv, audio_conf=val_audio_conf),
-        batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
-    stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
-    eval_acc = stats[0]['acc']
-    eval_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the test set---------------')
-    print("Accuracy: {:.6f}".format(eval_acc))
-    print("AUC: {:.6f}".format(eval_mAUC))
-    np.savetxt(args.exp_dir + '/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+# Evaluate on the test set
+eval_loader = torch.utils.data.DataLoader(
+    dataloader.AudiosetDataset(args.data_eval, label_csv=args.label_csv, audio_conf=val_audio_conf),
+    batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
+eval_acc = stats[0]['acc']
+eval_mAUC = np.mean([stat['auc'] for stat in stats])
+print('---------------evaluate on the test set---------------')
+print("Accuracy: {:.6f}".format(eval_acc))
+print("AUC: {:.6f}".format(eval_mAUC))
+np.savetxt(args.exp_dir + '/eval_result.csv', [eval_acc, eval_mAUC])
 

@@ -31,6 +31,7 @@ parser.add_argument("--n_class", type=int, default=527, help="number of classes"
 parser.add_argument("--model", type=str, default='ast', help="the model used")
 parser.add_argument("--dataset", type=str, default="audioset", help="the dataset used")
 parser.add_argument("--eval_only", help='only evaluate the model without training', type=ast.literal_eval, default='False')
+parser.add_argument("--seed", type=int, default=0, help="random seed for reproducibility")
 
 parser.add_argument("--exp-dir", type=str, default="", help="directory to dump experiments")
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')
@@ -72,6 +73,14 @@ parser.add_argument('--wa_start', type=int, default=1, help="which epoch to star
 parser.add_argument('--wa_end', type=int, default=5, help="which epoch to end weight averaging the checkpoint model")
 
 args = parser.parse_args()
+
+# Set random seed for reproducibility
+def set_seed(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+set_seed(args.seed)
 
 # transformer based model
 if args.model == 'ast':

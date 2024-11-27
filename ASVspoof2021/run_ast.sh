@@ -15,7 +15,7 @@ set -x
 export TORCH_HOME=../pretrained_models
 
 model=ast
-dataset=asvspoof2021
+dataset=asvspoof2021df
 imagenetpretrain=True
 audiosetpretrain=True
 bal=none
@@ -28,7 +28,7 @@ fi
 freqm=24
 timem=96
 mixup=0
-epoch=2
+epoch=1
 batch_size=48
 fstride=10
 tstride=10
@@ -56,15 +56,16 @@ mkdir -p $base_exp_dir
 
 exp_dir=${base_exp_dir}
 
-# tr_data=./datafiles/train_la.csv
-# val_data=./datafiles/val_la.csv
-# eval_data=./datafiles/eval_df.csv
-tr_data=test.csv
-val_data=test.csv
-eval_data=test.csv
+tr_data=./datafiles/train_la.csv
+val_data=./datafiles/val_la.csv
+eval_data=./datafiles/eval_df.csv
+# tr_data=test.csv
+# val_data=test.csv
+# eval_data=test.csv
 eval_only=False
+seed=0
 
-CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset ${dataset} \
+CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset ${dataset} --seed ${seed} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --eval_only ${eval_only} --exp-dir $exp_dir \
 --n_class 2 \
 --lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \

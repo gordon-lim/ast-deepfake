@@ -28,19 +28,24 @@ fi
 freqm=24
 timem=96
 mixup=0
-epoch=1
-batch_size=48
+epoch=25
+batch_size=24
 fstride=10
 tstride=10
 
-dataset_mean=-6.6268077
-dataset_std=5.358466
+dataset_mean=-4.0180
+dataset_std=5.1496
 audio_length=512
 noise=False
+
 use_deltas=True
+delta_mean=0.0113
+delta_std=0.4139
+delta_delta_mean=-0.0015
+delta_delta_std=0.1749
 
 metrics=acc
-loss=CE
+loss=BCE
 warmup=False
 lrscheduler_start=5
 lrscheduler_step=1
@@ -72,7 +77,9 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset $
 --freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
 --tstride $tstride --fstride $fstride --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain \
 --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
---dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise} --use_deltas ${use_deltas}
+--dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --delta_mean ${delta_mean} --delta_std ${delta_std} \
+--delta_delta_mean ${delta_delta_mean} --delta_delta_std ${delta_delta_std} --audio_length ${audio_length} \
+--noise ${noise} --use_deltas ${use_deltas}
 
 
 python ./get_ast_result.py --exp_path ${base_exp_dir}

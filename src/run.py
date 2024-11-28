@@ -57,6 +57,11 @@ parser.add_argument('--audioset_pretrain', help='if use ImageNet and audioset pr
 
 parser.add_argument("--dataset_mean", type=float, default=-4.2677393, help="the dataset spectrogram mean")
 parser.add_argument("--dataset_std", type=float, default=4.5689974, help="the dataset spectrogram std")
+parser.add_argument("--delta_mean", type=float, default=0.0, help="mean for delta features")
+parser.add_argument("--delta_std", type=float, default=1.0, help="std for delta features")
+parser.add_argument("--delta_delta_mean", type=float, default=0.0, help="mean for delta-delta features")
+parser.add_argument("--delta_delta_std", type=float, default=1.0, help="std for delta-delta features")
+
 parser.add_argument("--audio_length", type=int, default=1024, help="the dataset spectrogram std")
 parser.add_argument('--noise', help='if augment noise', type=ast.literal_eval, default='False')
 parser.add_argument('--use_deltas', help='if use delta features', type=ast.literal_eval, default='False')
@@ -93,9 +98,41 @@ if args.model == 'ast':
     # # if add noise for data augmentation, only use for speech commands
     # noise = {'audioset': False, 'esc50': False, 'speechcommands':True}
 
-    audio_conf = {'num_mel_bins': 128, 'target_length': args.audio_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset, 'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std,
-                  'noise':args.noise, 'use_deltas': args.use_deltas}
-    val_audio_conf = {'num_mel_bins': 128, 'target_length': args.audio_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset, 'mode':'evaluation', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':False, 'use_deltas': args.use_deltas}
+    audio_conf = {
+        'num_mel_bins': 128,
+        'target_length': args.audio_length,
+        'freqm': args.freqm,
+        'timem': args.timem,
+        'mixup': args.mixup,
+        'dataset': args.dataset,
+        'mode': 'train',
+        'mean': args.dataset_mean,
+        'std': args.dataset_std,
+        'delta_mean': args.delta_mean,  # Added delta mean
+        'delta_std': args.delta_std,    # Added delta std
+        'delta_delta_mean': args.delta_delta_mean,  # Added delta-delta mean
+        'delta_delta_std': args.delta_delta_std,    # Added delta-delta std
+        'noise': args.noise,
+        'use_deltas': args.use_deltas
+    }
+    
+    val_audio_conf = {
+        'num_mel_bins': 128,
+        'target_length': args.audio_length,
+        'freqm': 0,
+        'timem': 0,
+        'mixup': 0,
+        'dataset': args.dataset,
+        'mode': 'evaluation',
+        'mean': args.dataset_mean,
+        'std': args.dataset_std,
+        'delta_mean': args.delta_mean,  # Added delta mean
+        'delta_std': args.delta_std,    # Added delta std
+        'delta_delta_mean': args.delta_delta_mean,  # Added delta-delta mean
+        'delta_delta_std': args.delta_delta_std,    # Added delta-delta std
+        'noise': False,
+        'use_deltas': args.use_deltas
+    }
 
     if args.bal == 'bal':
         print('balanced sampler is being used')

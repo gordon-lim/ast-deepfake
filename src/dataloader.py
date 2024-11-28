@@ -86,6 +86,11 @@ class AudiosetDataset(Dataset):
         # dataset spectrogram mean and std, used to normalize the input
         self.norm_mean = self.audio_conf.get('mean')
         self.norm_std = self.audio_conf.get('std')
+        # Delta and Delta-Delta normalization stats
+        self.delta_mean = self.audio_conf.get('delta_mean', 0.0)
+        self.delta_std = self.audio_conf.get('delta_std', 1.0)
+        self.delta_delta_mean = self.audio_conf.get('delta_delta_mean', 0.0)
+        self.delta_delta_std = self.audio_conf.get('delta_delta_std', 1.0)
         # skip_norm is a flag that if you want to skip normalization to compute the normalization stats using src/get_norm_stats.py, if Ture, input normalization will be skipped for correctly calculating the stats.
         # set it as True ONLY when you are getting the normalization stats.
         self.skip_norm = self.audio_conf.get(
@@ -210,7 +215,11 @@ class AudiosetDataset(Dataset):
         fbank = torch.transpose(fbank, 1, 2) # back to [1, time, freq]
         # normalize the input for both training and test
         if not self.skip_norm:
-            fbank = (fbank - self.norm_mean) / (self.norm_std * 2)
+            # Normalize each channel separately
+            fbank[0] = (fbank[0] - self.norm_mean) / self.norm_std  # Log-Mel
+            if self.use_deltas:
+                fbank[1] = (fbank[1] - self.delta_mean) / self.delta_std  # Delta
+                fbank[2] = (fbank[2] - self.delta_delta_mean) / self.delta_delta_std  # Delta-Delta
         # skip normalization the input if you are trying to get the normalization stats.
         else:
             pass

@@ -69,10 +69,10 @@ eval_data=./datafiles/eval_df.csv
 # eval_data=test.csv
 eval_only=False
 seed=0
-patch_embed_flag = False
+focus = False
 
 
-CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset ${dataset} --seed ${seed} --patch_embed_flag ${patch_embed_flag}\
+CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset ${dataset} --seed ${seed} --focus_flag ${focus}\
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --eval_only ${eval_only} --exp-dir $exp_dir \
 --n_class 2 \
 --lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \

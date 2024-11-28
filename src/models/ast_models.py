@@ -47,14 +47,8 @@ class ASTModel(nn.Module):
     :param audioset_pretrain: if use full AudioSet and ImageNet pretrained model
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
-    # patch_embed_flag : set true to add importance mask after patch embedment
-    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, 
-                 imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True,
-                 patch_embed_flag = False):
-        
-        self.patch_embed_flag = patch_embed_flag
-        self.freq_threshold=(64, 4096)
-        
+    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True, focus_freq = False):
+
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
 
@@ -63,6 +57,8 @@ class ASTModel(nn.Module):
             print('ImageNet pretraining: {:s}, AudioSet pretraining: {:s}'.format(str(imagenet_pretrain),str(audioset_pretrain)))
         # override timm input shape restriction
         timm.models.vision_transformer.PatchEmbed = PatchEmbed
+
+        self.focus_freq = focus_freq
 
         # if AudioSet pretraining is not used (but ImageNet pretraining may still apply)
         if audioset_pretrain == False:
@@ -105,7 +101,6 @@ class ASTModel(nn.Module):
                     new_pos_embed = new_pos_embed[:, :, :, int(self.oringal_hw / 2) - int(t_dim / 2): int(self.oringal_hw / 2) - int(t_dim / 2) + t_dim]
                 else:
                     new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(self.oringal_hw, t_dim), mode='bilinear')
-                
                 # cut (from middle) or interpolate the first dimension of the positional embedding
                 if f_dim <= self.oringal_hw:
                     new_pos_embed = new_pos_embed[:, :, int(self.oringal_hw / 2) - int(f_dim / 2): int(self.oringal_hw / 2) - int(f_dim / 2) + f_dim, :]
@@ -148,6 +143,13 @@ class ASTModel(nn.Module):
             self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim), nn.Linear(self.original_embedding_dim, label_dim))
 
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
+
+            # if we focus on the frequency dimension save f_dim and t_dim for further calculation
+            if focus_freq == True:
+                self.f_dim = f_dim
+                self.t_dim = t_dim
+                self.f_range = (0, f_dim - 1)
+
             num_patches = f_dim * t_dim
             self.v.patch_embed.num_patches = num_patches
             if verbose == True:
@@ -155,7 +157,6 @@ class ASTModel(nn.Module):
                 print('number of patches={:d}'.format(num_patches))
 
             new_pos_embed = self.v.pos_embed[:, 2:, :].detach().reshape(1, 1212, 768).transpose(1, 2).reshape(1, 768, 12, 101)
-
             # if the input sequence length is larger than the original audioset (10s), then cut the positional embedding
             if t_dim < 101:
                 new_pos_embed = new_pos_embed[:, :, :, 50 - int(t_dim/2): 50 - int(t_dim/2) + t_dim]
@@ -164,10 +165,10 @@ class ASTModel(nn.Module):
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(12, t_dim), mode='bilinear')
             if f_dim < 12:
                 new_pos_embed = new_pos_embed[:, :, 6 - int(f_dim/2): 6 - int(f_dim/2) + f_dim, :]
+                self.f_range = (6 - int(f_dim/2), 6 - int(f_dim/2) + f_dim)
             # otherwise interpolate
             elif f_dim > 12:
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
-                
             new_pos_embed = new_pos_embed.reshape(1, 768, num_patches).transpose(1, 2)
             self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
 
@@ -189,15 +190,34 @@ class ASTModel(nn.Module):
         x = x.transpose(2, 3) # (batch_size, num_channels, frequency_bins, time_frame_num), e.g., (12, 1, 128, 1024)
 
         B = x.shape[0]
+
+        if self.focus_freq == True:
+            f_dim = self.f_dim
+            t_dim = self.t_dim
+            
+            # Define percentages for low and high frequency regions
+            low_freq_percentage = 0.1  # Bottom 10% of rows
+            high_freq_percentage = 0.1  # Top 10% of rows
+
+            # Calculate the number of rows to apply the bias
+            low_freq_rows = max(1, int(f_dim * low_freq_percentage))  # Ensure at least 1 row
+            high_freq_rows = max(1, int(f_dim * high_freq_percentage))  # Ensure at least 1 row
+
+            # Define the biases
+            low_freq_bias = 0.1  # Example bias for low frequency
+            high_freq_bias = 0.2  # Example bias for high frequency
+
+            # Reshape x to (batch_size, f_dim, t_dim, embed_dim)
+            x = x.view(B, f_dim, t_dim, -1)
+
+            # Apply biases to the frequency regions
+            x[:, :self.f_range[0] + low_freq_rows, :, :] += low_freq_bias  # Apply bias to the bottom rows
+            x[:, self.f_range[1] - high_freq_rows:, :, :] += high_freq_bias  # Apply bias to the top rows
+
+            # Reshape back to the original format
+            x = x.view(B, -1, x.size(-1))
+        
         x = self.v.patch_embed(x) # spectrogram is split into patches using nn.Conv2d (batch_size, num_patches, embedding_dim)
-
-        if self.patch_embed_flag:
-            important_mask = torch.ones(x.shape[1], dtype=torch.float)  # All patches important initially
-            # Currently this range is hardcoded to be the middle 80% of the frequencies
-            # this range should include the region of audio spectrogram within freq_threshold
-            important_mask[self.v.patch_embed.num_patches // 10 : self.v.patch_embed.num_patches * 9 // 10] = 0.5  # Reduce weight of unimportant patches
-            x *= important_mask.unsqueeze(0).unsqueeze(-1)
-
         cls_tokens = self.v.cls_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
         dist_token = self.v.dist_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
         x = torch.cat((cls_tokens, dist_token, x), dim=1) # (batch_size, num_patches + 2, embedding_dim)

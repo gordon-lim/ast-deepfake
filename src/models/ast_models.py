@@ -47,8 +47,14 @@ class ASTModel(nn.Module):
     :param audioset_pretrain: if use full AudioSet and ImageNet pretrained model
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
-    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True):
-
+    # patch_embed_flag : set true to add importance mask after patch embedment
+    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, 
+                 imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True,
+                 patch_embed_flag = False):
+        
+        self.patch_embed_flag = patch_embed_flag
+        self.freq_threshold=(64, 4096)
+        
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
 
@@ -99,6 +105,7 @@ class ASTModel(nn.Module):
                     new_pos_embed = new_pos_embed[:, :, :, int(self.oringal_hw / 2) - int(t_dim / 2): int(self.oringal_hw / 2) - int(t_dim / 2) + t_dim]
                 else:
                     new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(self.oringal_hw, t_dim), mode='bilinear')
+                
                 # cut (from middle) or interpolate the first dimension of the positional embedding
                 if f_dim <= self.oringal_hw:
                     new_pos_embed = new_pos_embed[:, :, int(self.oringal_hw / 2) - int(f_dim / 2): int(self.oringal_hw / 2) - int(f_dim / 2) + f_dim, :]
@@ -148,6 +155,7 @@ class ASTModel(nn.Module):
                 print('number of patches={:d}'.format(num_patches))
 
             new_pos_embed = self.v.pos_embed[:, 2:, :].detach().reshape(1, 1212, 768).transpose(1, 2).reshape(1, 768, 12, 101)
+
             # if the input sequence length is larger than the original audioset (10s), then cut the positional embedding
             if t_dim < 101:
                 new_pos_embed = new_pos_embed[:, :, :, 50 - int(t_dim/2): 50 - int(t_dim/2) + t_dim]
@@ -159,6 +167,7 @@ class ASTModel(nn.Module):
             # otherwise interpolate
             elif f_dim > 12:
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
+                
             new_pos_embed = new_pos_embed.reshape(1, 768, num_patches).transpose(1, 2)
             self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
 
@@ -181,6 +190,14 @@ class ASTModel(nn.Module):
 
         B = x.shape[0]
         x = self.v.patch_embed(x) # spectrogram is split into patches using nn.Conv2d (batch_size, num_patches, embedding_dim)
+
+        if self.patch_embed_flag:
+            important_mask = torch.ones(x.shape[1], dtype=torch.float)  # All patches important initially
+            # Currently this range is hardcoded to be the middle 80% of the frequencies
+            # this range should include the region of audio spectrogram within freq_threshold
+            important_mask[self.v.patch_embed.num_patches // 10 : self.v.patch_embed.num_patches * 9 // 10] = 0.5  # Reduce weight of unimportant patches
+            x *= important_mask.unsqueeze(0).unsqueeze(-1)
+
         cls_tokens = self.v.cls_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
         dist_token = self.v.dist_token.expand(B, -1, -1) # (batch_size, 1, embedding_dim)
         x = torch.cat((cls_tokens, dist_token, x), dim=1) # (batch_size, num_patches + 2, embedding_dim)

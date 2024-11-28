@@ -32,6 +32,7 @@ parser.add_argument("--model", type=str, default='ast', help="the model used")
 parser.add_argument("--dataset", type=str, default="audioset", help="the dataset used")
 parser.add_argument("--eval_only", help='only evaluate the model without training', type=ast.literal_eval, default='False')
 parser.add_argument("--seed", type=int, default=0, help="random seed for reproducibility")
+parser.add_argument("--patch_embed_flag", type=bool, default=False, help="set to true to enable patch embedment masking")
 
 parser.add_argument("--exp-dir", type=str, default="", help="directory to dump experiments")
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')

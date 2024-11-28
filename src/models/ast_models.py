@@ -15,75 +15,26 @@ import timm
 from timm.models.layers import to_2tuple,trunc_normal_
 
 # override the timm package to relax the input shape constraint.
-# class PatchEmbed(nn.Module):
-#     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
-#         super().__init__()
-
-#         img_size = to_2tuple(img_size)
-#         patch_size = to_2tuple(patch_size)
-#         num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
-#         self.img_size = img_size
-#         self.patch_size = patch_size
-#         self.num_patches = num_patches
-
-#         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-
-#     def forward(self, x):
-#         # x (batch_size, None, frequency_bins, time_frame_num)
-#         x = self.proj(x) # (batch_size, embed_dim, frequency_bins // patch_size, time_frames // patch_size)
-#         x= x.flatten(2) # (batch_size, embed_dim, num_patches)
-#         x = x.transpose(1, 2) # (batch_size, num_patches, embed_dim)
-#         return x
-    
 class PatchEmbed(nn.Module):
-    def __init__(self, img_size=(128, 512), patch_size=16, embed_dim=768, split_freq=64, high_freq_ratio=0.7):
-        """
-        img_size: tuple representing the (frequency, time) dimensions of the spectrogram.
-        patch_size: size of patches (assumed square for both low and high regions).
-        embed_dim: embedding dimension.
-        split_freq: frequency bin where low and high frequencies split.
-        high_freq_ratio: proportion of total patches allocated to the high-frequency region.
-        """
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
         super().__init__()
 
-        assert 0 < high_freq_ratio < 1, "high_freq_ratio must be between 0 and 1."
-        assert split_freq <= img_size[0], "split_freq must be less than or equal to the frequency dimension of img_size."
-
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
+        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
         self.img_size = img_size
         self.patch_size = patch_size
-        self.split_freq = split_freq
-        self.embed_dim = embed_dim
-        self.high_freq_ratio = high_freq_ratio
+        self.num_patches = num_patches
 
-        # Compute total patches based on the original PatchEmbed
-        freq_patches = img_size[0] // patch_size
-        time_patches = img_size[1] // patch_size
-        total_patches = freq_patches * time_patches
-
-        # Distribute patches between low and high-frequency regions
-        high_patches = int(total_patches * high_freq_ratio)
-        low_patches = total_patches - high_patches
-
-        # Calculate strides for low and high-frequency bands
-        self.low_stride = (split_freq - patch_size) // max(1, low_patches // time_patches) + 1
-        self.high_stride = (img_size[0] - split_freq - patch_size) // max(1, high_patches // time_patches) + 1
-
-        # Low and high-frequency convolutions
-        self.low_proj = nn.Conv2d(1, embed_dim, kernel_size=(patch_size, patch_size), stride=(self.low_stride, patch_size))
-        self.high_proj = nn.Conv2d(1, embed_dim, kernel_size=(patch_size, patch_size), stride=(self.high_stride, patch_size))
-
-        # Store the final number of patches for output consistency
-        self.num_patches = total_patches
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x):
-        low_freq_band = x[:, :, :self.split_freq, :]
-        high_freq_band = x[:, :, self.split_freq:, :]
+        # x (batch_size, None, frequency_bins, time_frame_num)
+        x = self.proj(x) # (batch_size, embed_dim, frequency_bins // patch_size, time_frames // patch_size)
+        x= x.flatten(2) # (batch_size, embed_dim, num_patches)
+        x = x.transpose(1, 2) # (batch_size, num_patches, embed_dim)
+        return x
 
-        low_embedded = self.low_proj(low_freq_band).flatten(2).transpose(1, 2)
-        high_embedded = self.high_proj(high_freq_band).flatten(2).transpose(1, 2)
-
-        output = torch.cat((low_embedded, high_embedded), dim=1)
-        return output
 
 class ASTModel(nn.Module):
     """

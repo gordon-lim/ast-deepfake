@@ -159,14 +159,14 @@ class ASTModel(nn.Module):
             # otherwise interpolate
             elif f_dim > 12:
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
-            new_pos_embed = new_pos_embed.reshape(1, 768, num_patches).transpose(1, 2)
             
             new_pos_embed_high = new_pos_embed[:, :, :8, :]
             new_pos_embed_high = new_pos_embed_high[:, :, 1:7, :]
             new_pos_embed_low = new_pos_embed[:, :, 9:, :]
             new_pos_embed_low = torch.nn.functional.interpolate(new_pos_embed_low, size=(6, t_dim), mode='bilinear')
             new_pos_embed = torch.cat((new_pos_embed_high, new_pos_embed_low), dim=3)
-            
+
+            new_pos_embed = new_pos_embed.reshape(1, 768, num_patches).transpose(1, 2)
             self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
 
     def get_shape(self, fstride, tstride, input_fdim=128, input_tdim=1024):

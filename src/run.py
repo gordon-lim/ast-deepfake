@@ -65,6 +65,7 @@ parser.add_argument("--delta_delta_std", type=float, default=1.0, help="std for 
 parser.add_argument("--audio_length", type=int, default=1024, help="the dataset spectrogram std")
 parser.add_argument('--noise', help='if augment noise', type=ast.literal_eval, default='False')
 parser.add_argument('--use_deltas', help='if use delta features', type=ast.literal_eval, default='False')
+parser.add_argument('--use_fusion', help='if use fusion embeddings', type=ast.literal_eval, default='False')
 
 parser.add_argument("--metrics", type=str, default=None, help="evaluation metrics", choices=["acc", "AP"])
 parser.add_argument("--loss", type=str, default=None, help="loss function", choices=["BCE", "CE"])
@@ -156,7 +157,7 @@ if args.model == 'ast':
 
     audio_model = models.ASTModel(in_chans=num_chans, label_dim=args.n_class, fstride=args.fstride, tstride=args.tstride, input_fdim=128,
                                   input_tdim=args.audio_length, imagenet_pretrain=args.imagenet_pretrain,
-                                  audioset_pretrain=args.audioset_pretrain, model_size='base384')
+                                  audioset_pretrain=args.audioset_pretrain, model_size='base384', use_fusion=args.use_fusion)
 
 if not args.eval_only:
     print("\nCreating experiment directory: %s" % args.exp_dir)

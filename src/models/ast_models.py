@@ -47,7 +47,7 @@ class ASTModel(nn.Module):
     :param audioset_pretrain: if use full AudioSet and ImageNet pretrained model
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
-    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True):
+    def __init__(self, in_chans=1, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384', verbose=True, use_fusion=False):
 
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
@@ -159,12 +159,13 @@ class ASTModel(nn.Module):
             # otherwise interpolate
             elif f_dim > 12:
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
-            
-            new_pos_embed_high = new_pos_embed[:, :, :8, :]
-            new_pos_embed_high = new_pos_embed_high[:, :, 1:7, :]
-            new_pos_embed_low = new_pos_embed[:, :, 9:, :]
-            new_pos_embed_low = torch.nn.functional.interpolate(new_pos_embed_low, size=(6, t_dim), mode='bilinear')
-            new_pos_embed = torch.cat((new_pos_embed_high, new_pos_embed_low), dim=3)
+
+            if use_fusion:
+                new_pos_embed_high = new_pos_embed[:, :, :8, :]
+                new_pos_embed_high = new_pos_embed_high[:, :, 1:7, :]
+                new_pos_embed_low = new_pos_embed[:, :, 9:, :]
+                new_pos_embed_low = torch.nn.functional.interpolate(new_pos_embed_low, size=(6, t_dim), mode='bilinear')
+                new_pos_embed = torch.cat((new_pos_embed_high, new_pos_embed_low), dim=3)
 
             new_pos_embed = new_pos_embed.reshape(1, 768, num_patches).transpose(1, 2)
             self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))

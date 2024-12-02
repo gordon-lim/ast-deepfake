@@ -39,6 +39,7 @@ audio_length=512
 noise=False
 
 use_deltas=True
+use_fusion=True
 delta_mean=0.0113
 delta_std=0.4139
 delta_delta_mean=-0.0015
@@ -51,7 +52,7 @@ lrscheduler_start=5
 lrscheduler_step=1
 lrscheduler_decay=0.85
 
-base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-deltas$use_deltas
+base_exp_dir=./exp/test-${dataset}-f$fstride-t$tstride-imp$imagenetpretrain-asp$audiosetpretrain-b$batch_size-lr${lr}-deltas$use_deltas-fusion$use_fusion
 
 if [ -d $base_exp_dir ]; then
   echo 'exp exist'
@@ -79,7 +80,7 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../src/run.py --model ${model} --dataset $
 --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --delta_mean ${delta_mean} --delta_std ${delta_std} \
 --delta_delta_mean ${delta_delta_mean} --delta_delta_std ${delta_delta_std} --audio_length ${audio_length} \
---noise ${noise} --use_deltas ${use_deltas}
+--noise ${noise} --use_deltas ${use_deltas} --use_fusion ${use_fusion}
 
 
 python ./get_ast_result.py --exp_path ${base_exp_dir}

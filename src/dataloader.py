@@ -216,10 +216,10 @@ class AudiosetDataset(Dataset):
         # normalize the input for both training and test
         if not self.skip_norm:
             # Normalize each channel separately
-            fbank[0] = (fbank[0] - self.norm_mean) / self.norm_std  # Log-Mel
+            fbank[0] = (fbank[0] - self.norm_mean) / (self.norm_std * 2) # Log-Mel
             if self.use_deltas:
-                fbank[1] = (fbank[1] - self.delta_mean) / self.delta_std  # Delta
-                fbank[2] = (fbank[2] - self.delta_delta_mean) / self.delta_delta_std  # Delta-Delta
+                fbank[1] = (fbank[1] - self.delta_mean) / (self.delta_std * 2)  # Delta
+                fbank[2] = (fbank[2] - self.delta_delta_mean) / (self.delta_delta_std * 2)  # Delta-Delta
         # skip normalization the input if you are trying to get the normalization stats.
         else:
             pass

@@ -212,7 +212,7 @@ class AudiosetDataset(Dataset):
         fbank = torch.transpose(fbank, 1, 2)
         # normalize the input for both training and test
         if not self.skip_norm:
-            fbank[0] = (fbank - self.norm_mean) / (self.norm_std * 2)
+            fbank[0] = (fbank[0] - self.norm_mean) / (self.norm_std * 2)
             fbank[1] = (fbank[1] - self.delta_mean) / (self.delta_std * 2)  # Delta
             fbank[2] = (fbank[2] - self.delta_delta_mean) / (self.delta_delta_std * 2)  # Delta-Delta
         # skip normalization the input if you are trying to get the normalization stats.

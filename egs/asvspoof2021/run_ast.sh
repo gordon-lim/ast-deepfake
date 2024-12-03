@@ -40,6 +40,11 @@ dataset_std=5.1623
 audio_length=512
 noise=False
 
+delta_mean=0.0113
+delta_std=0.4139
+delta_delta_mean=-0.0015
+delta_delta_std=0.1749
+
 metrics=acc
 loss=BCE
 warmup=False
@@ -73,7 +78,9 @@ do
   --freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
   --tstride $tstride --fstride $fstride --imagenet_pretrain $imagenetpretrain --audioset_pretrain $audiosetpretrain \
   --metrics ${metrics} --loss ${loss} --warmup ${warmup} --lrscheduler_start ${lrscheduler_start} --lrscheduler_step ${lrscheduler_step} --lrscheduler_decay ${lrscheduler_decay} \
-  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --audio_length ${audio_length} --noise ${noise}
+  --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --delta_mean ${delta_mean} --delta_std ${delta_std} \
+  --delta_delta_mean ${delta_delta_mean} --delta_delta_std ${delta_delta_std} \
+  --audio_length ${audio_length} --noise ${noise}
 done
 
 python ./get_ast_result.py --exp_path ${base_exp_dir}

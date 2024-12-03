@@ -178,7 +178,7 @@ if args.model == 'ast':
             args.data_val, audio_conf=val_audio_conf),
         batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
 
-    num_chans = 3 if args.use_deltas else 1
+    num_chans = 3
 
     audio_model = models.ASTModel(in_chans=num_chans, label_dim=args.n_class, fstride=args.fstride, tstride=args.tstride, input_fdim=128,
                                   input_tdim=args.audio_length, imagenet_pretrain=args.imagenet_pretrain,

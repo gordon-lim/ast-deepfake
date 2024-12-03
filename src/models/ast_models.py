@@ -81,7 +81,7 @@ class ASTModel(nn.Module):
                 print('number of patches={:d}'.format(num_patches))
 
             # the linear projection layer
-            new_proj = torch.nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
+            new_proj = torch.nn.Conv2d(in_chans, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
             if imagenet_pretrain == True:
                 new_proj.weight = torch.nn.Parameter(torch.sum(self.v.patch_embed.proj.weight, dim=1).unsqueeze(1))
                 new_proj.bias = self.v.patch_embed.proj.bias
